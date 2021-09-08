@@ -299,11 +299,12 @@ bool ElectronPermissionManager::CheckDevicePermission(
   api::WebContents* api_web_contents = api::WebContents::From(web_contents);
   v8::Isolate* isolate = JavascriptEnvironment::GetIsolate();
   v8::HandleScope scope(isolate);
-  auto details = gin::Dictionary::CreateEmpty(isolate);
-  details.Set("deviceType", permission);
-  details.Set("origin", origin.Serialize());
-  details.Set("device", device->Clone());
-  details.Set("webContents", api_web_contents);
+  v8::Local<v8::Object> details = gin::DataObjectBuilder(isolate)
+    .Set("deviceType", permission)
+    .Set("origin", origin.Serialize())
+    .Set("device", device->Clone())
+    .Set("webContents", api_web_contents)
+    .Build();
 
   if (device_permission_handler_.is_null()) {
     bool ret = false;
