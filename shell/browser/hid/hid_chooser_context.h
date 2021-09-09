@@ -31,6 +31,12 @@ class Value;
 
 namespace electron {
 
+extern const char kHidDeviceNameKey[];
+extern const char kHidGuidKey[];
+extern const char kHidVendorIdKey[];
+extern const char kHidProductIdKey[];
+extern const char kHidSerialNumberKey[];
+
 // Manages the internal state and connection to the device service for the
 // Human Interface Device (HID) chooser UI.
 class HidChooserContext : public KeyedService,
@@ -40,10 +46,10 @@ class HidChooserContext : public KeyedService,
   // disconnected.
   class DeviceObserver : public base::CheckedObserver {
    public:
-    virtual void OnDeviceAdded(const device::mojom::HidDeviceInfo&);
-    virtual void OnDeviceRemoved(const device::mojom::HidDeviceInfo&);
-    virtual void OnDeviceChanged(const device::mojom::HidDeviceInfo&);
-    virtual void OnHidManagerConnectionError();
+    virtual void OnDeviceAdded(const device::mojom::HidDeviceInfo&) = 0;
+    virtual void OnDeviceRemoved(const device::mojom::HidDeviceInfo&) = 0;
+    virtual void OnDeviceChanged(const device::mojom::HidDeviceInfo&) = 0;
+    virtual void OnHidManagerConnectionError() = 0;
 
     // Called when the HidChooserContext is shutting down. Observers must remove
     // themselves before returning.

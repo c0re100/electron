@@ -187,13 +187,13 @@ Returns:
 * `event` Event
 * `details` Object
   * `deviceList` [HIDDevice[]](structures/hid-device.md)
-  * `webContents` [WebContents](web-contents.md)
+  * `frame` [WebFrameMain](web-frame-main.md)
 * `callback` Function
-  * `deviceId` String
+  * `deviceId` String (optional)
 
 Emitted when a HID device needs to be selected when a call to
 `navigator.hid.requestDevice` is made. `callback` should be called with
-`deviceId` to be selected, passing an empty string to `callback` will
+`deviceId` to be selected; passing an empty argument to `callback` will
 cancel the request.  Additionally, permissioning on `navigator.hid` can
 be further managed by using [ses.setPermissionCheckHandler(handler)](#sessetpermissioncheckhandlerhandler)
 and [ses.setDevicePermissionHandler(handler)`](#sessetdevicepermissionhandlerhandler).
@@ -238,12 +238,7 @@ app.whenReady().then(() => {
     const selectedDevice = details.deviceList.find((device) => {
       return device.vendorId === '9025' && device.productId === '67'
     })
-    if (!selectedDevice) {
-      callback('')
-    } else {
-      grantedDevices.push(device)
-      callback(selectedDevice.deviceId)
-    }
+    callback(selectedPort?.deviceId)
   })
 })
 ```
@@ -255,7 +250,7 @@ Returns:
 * `event` Event
 * `details` Object
   * `device` [HIDDevice[]](structures/hid-device.md)
-  * `webContents` [WebContents](web-contents.md)
+  * `frame` [WebFrameMain](web-frame-main.md)
 
 Emitted when a new HID device becomes available. For example, when a new USB device is plugged in.
 
@@ -268,9 +263,11 @@ Returns:
 * `event` Event
 * `details` Object
   * `device` [HIDDevice[]](structures/hid-device.md)
-  * `webContents` [WebContents](web-contents.md)
+  * `frame` [WebFrameMain](web-frame-main.md)
 
-Emitted after `navigator.hid.requestDevice` has been called and `select-hid-device` has fired if a HID device has been removed.  For example, this event will fire when a USB device is unplugged.
+Emitted when a HID device has been removed.  For example, this event will fire when a USB device is unplugged.
+
+This event will only be emitted after `navigator.hid.requestDevice` has been called and `select-hid-device` has fired.
 
 #### Event: 'select-serial-port'
 
@@ -652,7 +649,7 @@ session.fromPartition('some-partition').setPermissionCheckHandler((webContents, 
     * `deviceType` String - The type of device that permission is being requested on, can be `hid`.
     * `origin` String - The origin URL of the device permission check.
     * `device` [HIDDevice](structures/hid-device.md) - the device that permission is being requested for.
-    * `webContents` [WebContents](web-contents.md) - WebContents checking the device permission.
+    * `frame` [WebFrameMain](web-frame-main.md) - WebFrameMain checking the device permission.
 
 Sets the handler which can be used to respond to device permission checks for the `session`.
 Returning `true` will allow the device to be permitted and `false` will reject it.
@@ -665,38 +662,47 @@ of the corresponding WebContents.  If longer term storage is needed, a developer
 permissions (eg when handling the `select-hid-device` event) and then read from that storage with `setDevicePermissionHandler`.
 
 ```javascript
-const { session } = require('electron')
-const url = require('url')
-const grantedDevices = getGrantedDevices() // Retrieve previously persisted device permissions
+const { app, BrowserWindow } = require('electron')
 
-session.defaultSession.setDevicePermissionHandler((details) => {
-  if (new URL(details.origin).hostname === 'some-host' && details.deviceType === 'hid') {
-    if (details.device.vendorId === 123 && details.device.productId === 345) {
-      // Always allow this type of device (this allows skipping the call to `navigator.hid.requestDevice` first)
-      return true // Approved permission
+let win = null
+
+app.whenReady().then(() => {
+  win = new BrowserWindow()
+
+  win.webContents.session.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
+    if (permission === 'hid') {
+      // Add logic here to determine if permission should be given to allow HID selection
+      return true
     }
-
-    // Search through the list of devices that have previously been granted permission
-    return grantedDevices.some((grantedDevice) => {
-      return grantedDevice.vendorId === details.device.vendorId &&
-            grantedDevice.productId === details.device.productId &&
-            grantedDevice.serialNumber && grantedDevice.serialNumber === details.device.serialNumber
-    })
-  }
-  return false // Denied permission
-})
-
-session.fromPartition('some-partition').on('select-hid-device', (event, details, callback) => {
-  event.preventDefault()
-  const selectedDevice = details.deviceList.find((device) => {
-    return device.vendorId === '9025' && device.productId === '67'
   })
-  if (!selectedDevice) {
-    callback('')
-  } else {
-    // Persist to grantedDevices here
-    callback(selectedDevice.deviceId)
-  }
+
+  // Retrieve previously persisted devices from an (optional) persistent store
+  const grantedDevices = fetchGrantedDevices()
+
+  win.webContents.session.setDevicePermissionHandler((details) => {
+    if (new URL(details.origin).hostname === 'some-host' && details.deviceType === 'hid') {
+      if (details.device.vendorId === 123 && details.device.productId === 345) {
+        // Always allow this type of device (this allows skipping the call to `navigator.hid.requestDevice` first)
+        return true
+      }
+
+      // Search through the list of devices that have previously been granted permission
+      return grantedDevices.some((grantedDevice) => {
+        return grantedDevice.vendorId === details.device.vendorId &&
+              grantedDevice.productId === details.device.productId &&
+              grantedDevice.serialNumber && grantedDevice.serialNumber === details.device.serialNumber
+      })
+    }
+    return false
+  })
+
+  win.webContents.session.on('select-hid-device', (event, details, callback) => {
+    event.preventDefault()
+    const selectedDevice = details.deviceList.find((device) => {
+      return device.vendorId === '9025' && device.productId === '67'
+    })
+    callback(selectedPort?.deviceId)
+  })
 })
 ```
 

@@ -97,11 +97,12 @@ bool WebContentsPermissionHelper::CheckPermission(
 bool WebContentsPermissionHelper::CheckDevicePermission(
     content::PermissionType permission,
     const url::Origin& origin,
-    const base::Value* device) const {
+    const base::Value* device,
+    content::RenderFrameHost* render_frame_host) const {
   auto* permission_manager = static_cast<ElectronPermissionManager*>(
       web_contents_->GetBrowserContext()->GetPermissionControllerDelegate());
-  return permission_manager->CheckDevicePermission(permission, web_contents_,
-                                                   origin, device);
+  return permission_manager->CheckDevicePermission(
+      permission, web_contents_, origin, device, render_frame_host);
 }
 
 void WebContentsPermissionHelper::GrantDevicePermission(
@@ -198,10 +199,11 @@ bool WebContentsPermissionHelper::CheckHIDAccessPermission(
 
 bool WebContentsPermissionHelper::CheckHIDDevicePermission(
     const url::Origin& origin,
-    base::Value device) const {
+    base::Value device,
+    content::RenderFrameHost* render_frame_host) const {
   return CheckDevicePermission(
       static_cast<content::PermissionType>(PermissionType::HID), origin,
-      &device);
+      &device, render_frame_host);
 }
 
 void WebContentsPermissionHelper::GrantHIDDevicePermission(

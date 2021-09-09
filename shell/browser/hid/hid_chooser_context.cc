@@ -24,22 +24,11 @@
 
 namespace electron {
 
-constexpr char kHidDeviceNameKey[] = "name";
-constexpr char kHidGuidKey[] = "guid";
-constexpr char kHidVendorIdKey[] = "vendorId";
-constexpr char kHidProductIdKey[] = "productId";
-constexpr char kHidSerialNumberKey[] = "serialNumber";
-
-void HidChooserContext::DeviceObserver::OnDeviceAdded(
-    const device::mojom::HidDeviceInfo& device) {}
-
-void HidChooserContext::DeviceObserver::OnDeviceRemoved(
-    const device::mojom::HidDeviceInfo& device) {}
-
-void HidChooserContext::DeviceObserver::OnDeviceChanged(
-    const device::mojom::HidDeviceInfo& device) {}
-
-void HidChooserContext::DeviceObserver::OnHidManagerConnectionError() {}
+const char kHidDeviceNameKey[] = "name";
+const char kHidGuidKey[] = "guid";
+const char kHidVendorIdKey[] = "vendorId";
+const char kHidProductIdKey[] = "productId";
+const char kHidSerialNumberKey[] = "serialNumber";
 
 HidChooserContext::HidChooserContext(ElectronBrowserContext* context)
     : browser_context_(context) {}
@@ -129,8 +118,8 @@ bool HidChooserContext::HasDevicePermission(
       content::WebContents::FromRenderFrameHost(render_frame_host);
   auto* permission_helper =
       WebContentsPermissionHelper::FromWebContents(web_contents);
-  return permission_helper->CheckHIDDevicePermission(origin,
-                                                     DeviceInfoToValue(device));
+  return permission_helper->CheckHIDDevicePermission(
+      origin, DeviceInfoToValue(device), render_frame_host);
 }
 
 void HidChooserContext::AddDeviceObserver(DeviceObserver* observer) {

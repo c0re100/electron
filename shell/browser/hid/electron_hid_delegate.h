@@ -27,6 +27,7 @@ class ElectronHidDelegate : public content::HidDelegate,
   ElectronHidDelegate& operator=(ElectronHidDelegate&) = delete;
   ~ElectronHidDelegate() override;
 
+  // content::HidDelegate:
   std::unique_ptr<content::HidChooser> RunChooser(
       content::RenderFrameHost* render_frame_host,
       std::vector<blink::mojom::HidDeviceFilterPtr> filters,

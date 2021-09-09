@@ -111,8 +111,6 @@ const defaultPrintingSetting = {
   url: undefined as string | undefined
 } as const;
 
-const permissionMap = new Map<string, Map<string, Array<any>>>();
-
 // JavaScript implementations of WebContents.
 const binding = process._linkedBinding('electron_browser_web_contents');
 const printing = process._linkedBinding('electron_browser_printing');
@@ -760,50 +758,6 @@ WebContents.prototype._init = function () {
     get: () => this.getBackgroundThrottling(),
     set: (allowed) => this.setBackgroundThrottling(allowed)
   });
-};
-
-function _hasGrantedDevicePermission (grantedDevices: Array<any>, type: string, device: any) {
-  const foundDevice = grantedDevices.find((grantedDevice: any) => {
-    switch (type) {
-      case 'hid': {
-        return grantedDevice.vendorId === device.vendorId &&
-               grantedDevice.productId === device.productId &&
-               grantedDevice.serialNumber && grantedDevice.serialNumber === device.serialNumber;
-      }
-    }
-  });
-  if (foundDevice) {
-    return true;
-  }
-  return false;
-}
-
-WebContents.prototype._defaultDevicePermissionHandler = function (details: { origin: string, deviceType: string, device: any }) {
-  const devicePermissionsForType = permissionMap.get(details.deviceType);
-  if (!devicePermissionsForType) {
-    return false;
-  }
-  const devicePermissionsForOrigin = devicePermissionsForType.get(details.origin);
-  if (!devicePermissionsForOrigin || devicePermissionsForOrigin.length === 0) {
-    return false;
-  }
-  return _hasGrantedDevicePermission(devicePermissionsForOrigin, details.deviceType, details.device);
-};
-
-WebContents.prototype._defaultGrantDevicePermissionHandler = function (details: { origin: string, deviceType: string, device: any }) {
-  let devicePermissionsForType = permissionMap.get(details.deviceType);
-  if (!devicePermissionsForType) {
-    devicePermissionsForType = new Map<string, Array<any>>();
-    permissionMap.set(details.deviceType, devicePermissionsForType);
-  }
-  let devicePermissionsForOrigin = devicePermissionsForType.get(details.origin);
-  if (!devicePermissionsForOrigin) {
-    devicePermissionsForOrigin = [];
-    devicePermissionsForType.set(details.origin, devicePermissionsForOrigin);
-  }
-  if (!_hasGrantedDevicePermission(devicePermissionsForOrigin, details.deviceType, details.device)) {
-    devicePermissionsForOrigin.push(details.device);
-  }
 };
 
 // Public APIs.

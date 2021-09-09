@@ -43,8 +43,10 @@ class WebContentsPermissionHelper
                                   blink::mojom::MediaStreamType type) const;
   bool CheckSerialAccessPermission(const url::Origin& embedding_origin) const;
   bool CheckHIDAccessPermission(const url::Origin& embedding_origin) const;
-  bool CheckHIDDevicePermission(const url::Origin& origin,
-                                base::Value device) const;
+  bool CheckHIDDevicePermission(
+      const url::Origin& origin,
+      base::Value device,
+      content::RenderFrameHost* render_frame_host) const;
   void GrantHIDDevicePermission(const url::Origin& origin,
                                 base::Value device) const;
 
@@ -62,7 +64,8 @@ class WebContentsPermissionHelper
 
   bool CheckDevicePermission(content::PermissionType permission,
                              const url::Origin& origin,
-                             const base::Value* device) const;
+                             const base::Value* device,
+                             content::RenderFrameHost* render_frame_host) const;
 
   void GrantDevicePermission(content::PermissionType permission,
                              const url::Origin& origin,

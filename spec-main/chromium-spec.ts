@@ -1911,7 +1911,7 @@ describe('navigator.hid', () => {
     let selectFired = false;
     w.webContents.session.on('select-hid-device', (event, details, callback) => {
       selectFired = true;
-      callback('');
+      callback();
     });
     session.defaultSession.setPermissionCheckHandler(() => false);
     const device = await getDevices();
@@ -1928,12 +1928,13 @@ describe('navigator.hid', () => {
         haveDevices = true;
         callback(details.deviceList[0].deviceId);
       } else {
-        callback('');
+        callback();
       }
     });
     const device = await getDevices();
     expect(selectFired).to.be.true();
     if (haveDevices) {
+      console.log('IN navigator.hid HAVE DEVICES');
       expect(device).to.contain('[object HIDDevice]');
     } else {
       expect(device).to.equal('');
@@ -1958,7 +1959,7 @@ describe('navigator.hid', () => {
           return;
         }
       }
-      callback('');
+      callback();
     });
     session.defaultSession.setDevicePermissionHandler(() => {
       gotDevicePerms = true;

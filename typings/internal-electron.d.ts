@@ -71,8 +71,6 @@ declare namespace Electron {
     _print(options: any, callback?: (success: boolean, failureReason: string) => void): void;
     _getPrinters(): Electron.PrinterInfo[];
     _init(): void;
-    _defaultDevicePermissionHandler(details: { origin: string, deviceType: string, device: any }): boolean;
-    _defaultGrantDevicePermissionHandler(details: { origin: string, deviceType: string, device: any }): void;
     canGoToIndex(index: number): boolean;
     getActiveIndex(): number;
     length(): number;

@@ -11,6 +11,7 @@
 #include "base/containers/contains.h"
 #include "base/ranges/algorithm.h"
 #include "base/stl_util.h"
+#include "gin/data_object_builder.h"
 #include "services/device/public/cpp/hid/hid_blocklist.h"
 #include "services/device/public/cpp/hid/hid_switches.h"
 #include "shell/browser/api/electron_api_session.h"
@@ -21,6 +22,8 @@
 #include "shell/common/gin_converters/content_converter.h"
 #include "shell/common/gin_converters/value_converter.h"
 #include "shell/common/gin_helper/dictionary.h"
+#include "shell/common/node_includes.h"
+#include "shell/common/process_util.h"
 #include "ui/base/l10n/l10n_util.h"
 
 namespace {
@@ -69,7 +72,8 @@ HidChooserController::HidChooserController(
                   ->GetMainFrame()
                   ->GetLastCommittedOrigin()),
       frame_tree_node_id_(render_frame_host->GetFrameTreeNodeId()),
-      hid_delegate_(hid_delegate) {
+      hid_delegate_(hid_delegate),
+      render_frame_host_id_(render_frame_host->GetGlobalId()) {
   chooser_context_ = HidChooserContextFactory::GetForBrowserContext(
                          web_contents->GetBrowserContext())
                          ->AsWeakPtr();
@@ -98,11 +102,13 @@ void HidChooserController::OnDeviceAdded(
   if (AddDeviceInfo(device)) {
     api::Session* session = GetSession();
     if (session) {
+      auto* rfh = content::RenderFrameHost::FromID(render_frame_host_id_);
       v8::Isolate* isolate = JavascriptEnvironment::GetIsolate();
       v8::HandleScope scope(isolate);
-      auto details = gin::Dictionary::CreateEmpty(isolate);
-      details.Set("device", device.Clone());
-      details.Set("webContents", web_contents());
+      v8::Local<v8::Object> details = gin::DataObjectBuilder(isolate)
+                                          .Set("device", device.Clone())
+                                          .Set("frame", rfh)
+                                          .Build();
       session->Emit("hid-device-added", details);
     }
   }
@@ -120,9 +126,10 @@ void HidChooserController::OnDeviceRemoved(
   if (session) {
     v8::Isolate* isolate = JavascriptEnvironment::GetIsolate();
     v8::HandleScope scope(isolate);
-    auto details = gin::Dictionary::CreateEmpty(isolate);
-    details.Set("device", device.Clone());
-    details.Set("webContents", web_contents());
+    v8::Local<v8::Object> details = gin::DataObjectBuilder(isolate)
+                                        .Set("device", device.Clone())
+                                        .Set("webContents", web_contents())
+                                        .Build();
     session->Emit("hid-device-removed", details);
   }
   RemoveDeviceInfo(device);
@@ -147,8 +154,9 @@ void HidChooserController::OnDeviceChanged(
   UpdateDeviceInfo(device);
 }
 
-void HidChooserController::OnDeviceChosen(const std::string& device_id) {
-  if (device_id.empty()) {
+void HidChooserController::OnDeviceChosen(gin::Arguments* args) {
+  std::string device_id;
+  if (!args->GetNext(&device_id) || device_id.empty()) {
     RunCallback({});
   } else {
     auto find_it = device_map_.find(device_id);
@@ -163,6 +171,10 @@ void HidChooserController::OnDeviceChosen(const std::string& device_id) {
       }
       RunCallback(std::move(devices));
     } else {
+      v8::Isolate* isolate = JavascriptEnvironment::GetIsolate();
+      node::Environment* env = node::Environment::GetCurrent(isolate);
+      EmitWarning(env, "The device id " + device_id + " was not found.",
+                  "UnknownHIDDeviceId");
       RunCallback({});
     }
   }
@@ -198,9 +210,10 @@ void HidChooserController::OnGotDevices(
   if (session) {
     v8::Isolate* isolate = JavascriptEnvironment::GetIsolate();
     v8::HandleScope scope(isolate);
-    auto details = gin::Dictionary::CreateEmpty(isolate);
-    details.Set("deviceList", devicesToDisplay);
-    details.Set("webContents", web_contents());
+    v8::Local<v8::Object> details = gin::DataObjectBuilder(isolate)
+                                        .Set("deviceList", devicesToDisplay)
+                                        .Set("webContents", web_contents())
+                                        .Build();
     prevent_default =
         session->Emit("select-hid-device", details,
                       base::AdaptCallbackForRepeating(
@@ -345,12 +358,6 @@ void HidChooserController::RenderFrameDeleted(
     content::RenderFrameHost* render_frame_host) {
   if (hid_delegate_) {
     hid_delegate_->DeleteControllerForFrame(render_frame_host);
-  }
-}
-
-void HidChooserController::PrimaryPageChanged(content::Page& page) {
-  if (hid_delegate_) {
-    hid_delegate_->DeleteControllerForFrame(web_contents()->GetMainFrame());
   }
 }
 

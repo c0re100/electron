@@ -44,7 +44,7 @@ class ElectronPermissionManager : public content::PermissionControllerDelegate {
                                    const base::Value&)>;
 
   using DeviceCheckHandler =
-      base::RepeatingCallback<bool(const gin::Dictionary&)>;
+      base::RepeatingCallback<bool(const v8::Local<v8::Object>&)>;
 
   // Handler to dispatch permission requests in JS.
   void SetPermissionRequestHandler(const RequestHandler& handler);
@@ -89,7 +89,8 @@ class ElectronPermissionManager : public content::PermissionControllerDelegate {
   bool CheckDevicePermission(content::PermissionType permission,
                              content::WebContents* web_contents,
                              const url::Origin& origin,
-                             const base::Value* object) const;
+                             const base::Value* object,
+                             content::RenderFrameHost* render_frame_host) const;
 
   void GrantDevicePermission(content::PermissionType permission,
                              content::WebContents* web_contents,

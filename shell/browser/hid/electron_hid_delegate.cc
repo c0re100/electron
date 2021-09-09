@@ -35,7 +35,8 @@ std::unique_ptr<content::HidChooser> ElectronHidDelegate::RunChooser(
     content::RenderFrameHost* render_frame_host,
     std::vector<blink::mojom::HidDeviceFilterPtr> filters,
     content::HidChooser::Callback callback) {
-  auto* chooser_context = GetChooserContext(render_frame_host);
+  electron::HidChooserContext* chooser_context =
+      GetChooserContext(render_frame_host);
   if (!device_observation_.IsObserving())
     device_observation_.Observe(chooser_context);
 
@@ -102,7 +103,7 @@ const device::mojom::HidDeviceInfo* ElectronHidDelegate::GetDeviceInfo(
 }
 
 bool ElectronHidDelegate::IsFidoAllowedForOrigin(const url::Origin& origin) {
-  return true;
+  return false;
 }
 
 void ElectronHidDelegate::OnDeviceAdded(

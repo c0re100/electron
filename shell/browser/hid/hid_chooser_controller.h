@@ -11,6 +11,7 @@
 
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
+#include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/hid_chooser.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -18,6 +19,7 @@
 #include "shell/browser/api/electron_api_session.h"
 #include "shell/browser/hid/electron_hid_delegate.h"
 #include "shell/browser/hid/hid_chooser_context.h"
+#include "shell/common/gin_converters/frame_converter.h"
 #include "third_party/blink/public/mojom/hid/hid.mojom.h"
 
 namespace content {
@@ -61,7 +63,6 @@ class HidChooserController
 
   // content::WebContentsObserver:
   void RenderFrameDeleted(content::RenderFrameHost* render_frame_host) override;
-  void PrimaryPageChanged(content::Page& page) override;
 
  private:
   api::Session* GetSession();
@@ -85,7 +86,7 @@ class HidChooserController
   void UpdateDeviceInfo(const device::mojom::HidDeviceInfo& device_info);
 
   void RunCallback(std::vector<device::mojom::HidDeviceInfoPtr> devices);
-  void OnDeviceChosen(const std::string& device_id);
+  void OnDeviceChosen(gin::Arguments* args);
 
   std::vector<blink::mojom::HidDeviceFilterPtr> filters_;
   content::HidChooser::Callback callback_;
@@ -114,6 +115,8 @@ class HidChooserController
       observation_{this};
 
   base::WeakPtr<ElectronHidDelegate> hid_delegate_;
+
+  content::GlobalRenderFrameHostId render_frame_host_id_;
 
   base::WeakPtrFactory<HidChooserController> weak_factory_{this};
 };
