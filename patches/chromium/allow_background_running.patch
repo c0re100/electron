@@ -1,0 +1,18 @@
+From d994f412e2221f23135df752c2c515dd14ad199c Mon Sep 17 00:00:00 2001
+From: c0re100 <corehusky@gmail.com>
+Date: Fri, 10 Sep 2021 08:43:45 +0800
+Subject: [PATCH] Allow background running
+
+diff --git a/content/browser/renderer_host/render_widget_host_impl.cc b/content/browser/renderer_host/render_widget_host_impl.cc
+index fc8916ac6dc76..41da13af8e1b5 100644
+--- a/content/browser/renderer_host/render_widget_host_impl.cc
++++ b/content/browser/renderer_host/render_widget_host_impl.cc
+@@ -736,7 +736,7 @@ void RenderWidgetHostImpl::WasHidden() {
+     // here, and we'd have a `pending_show_closure_` if we are
+     // `waiting_for_init_`.
+     DCHECK(!waiting_for_init_);
+-    blink_widget_->WasHidden();
++    //blink_widget_->WasHidden();
+   }
+ 
+   // Tell the RenderProcessHost we were hidden.
