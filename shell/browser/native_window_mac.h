@@ -147,6 +147,7 @@ class NativeWindowMac : public NativeWindow,
   void CloseFilePreview() override;
   gfx::Rect ContentBoundsToWindowBounds(const gfx::Rect& bounds) const override;
   gfx::Rect WindowBoundsToContentBounds(const gfx::Rect& bounds) const override;
+  gfx::Rect GetWindowControlsOverlayRect() override;
   void NotifyWindowEnterFullScreen() override;
   void NotifyWindowLeaveFullScreen() override;
   void SetActive(bool is_key) override;
@@ -182,18 +183,23 @@ class NativeWindowMac : public NativeWindow,
     kInactive,
   };
 
-  enum class TitleBarStyle {
-    kNormal,
-    kHidden,
-    kHiddenInset,
-    kCustomButtonsOnHover,
-  };
-  TitleBarStyle title_bar_style() const { return title_bar_style_; }
-
   ElectronPreviewItem* preview_item() const { return preview_item_.get(); }
   ElectronTouchBar* touch_bar() const { return touch_bar_.get(); }
   bool zoom_to_page_width() const { return zoom_to_page_width_; }
   bool always_simple_fullscreen() const { return always_simple_fullscreen_; }
+
+  // We need to save the result of windowWillUseStandardFrame:defaultFrame
+  // because macOS calls it with what it refers to as the "best fit" frame for a
+  // zoom. This means that even if an aspect ratio is set, macOS might adjust it
+  // to better fit the screen.
+  //
+  // Thus, we can't just calculate the maximized aspect ratio'd sizing from
+  // the current visible screen and compare that to the current window's frame
+  // to determine whether a window is maximized.
+  NSRect default_frame_for_zoom() const { return default_frame_for_zoom_; }
+  void set_default_frame_for_zoom(NSRect frame) {
+    default_frame_for_zoom_ = frame;
+  }
 
  protected:
   // views::WidgetDelegate:
@@ -249,9 +255,6 @@ class NativeWindowMac : public NativeWindow,
   // The presentation options before entering kiosk mode.
   NSApplicationPresentationOptions kiosk_options_;
 
-  // The "titleBarStyle" option.
-  TitleBarStyle title_bar_style_ = TitleBarStyle::kNormal;
-
   // The "visualEffectState" option.
   VisualEffectState visual_effect_state_ = VisualEffectState::kFollowWindow;
 
@@ -274,6 +277,7 @@ class NativeWindowMac : public NativeWindow,
   NSRect original_frame_;
   NSInteger original_level_;
   NSUInteger simple_fullscreen_mask_;
+  NSRect default_frame_for_zoom_;
 
   std::string vibrancy_type_;
 

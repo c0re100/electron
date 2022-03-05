@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as qs from 'querystring';
 import * as http from 'http';
+import * as semver from 'semver';
 import { AddressInfo } from 'net';
 import { app, BrowserWindow, BrowserView, dialog, ipcMain, OnBeforeSendHeadersListenerDetails, protocol, screen, webContents, session, WebContents, BrowserWindowConstructorOptions } from 'electron/main';
 
@@ -1100,6 +1101,24 @@ describe('BrowserWindow module', () => {
           await unmaximize;
           expect(w.isMaximized()).to.equal(false);
         });
+        it('returns the correct value for windows with an aspect ratio', async () => {
+          w.destroy();
+          w = new BrowserWindow({
+            show: false,
+            fullscreenable: false
+          });
+
+          w.setAspectRatio(16 / 11);
+
+          const maximize = emittedOnce(w, 'resize');
+          w.show();
+          w.maximize();
+          await maximize;
+
+          expect(w.isMaximized()).to.equal(true);
+          w.resizable = false;
+          expect(w.isMaximized()).to.equal(true);
+        });
       });
 
       ifdescribe(process.platform !== 'linux')('Minimized state', () => {
@@ -1864,8 +1883,47 @@ describe('BrowserWindow module', () => {
     });
   });
 
-  ifdescribe(process.platform === 'darwin' && parseInt(os.release().split('.')[0]) >= 14)('"titleBarStyle" option', () => {
+  ifdescribe(process.platform === 'win32' || (process.platform === 'darwin' && semver.gte(os.release(), '14.0.0')))('"titleBarStyle" option', () => {
+    const testWindowsOverlay = async (style: any) => {
+      const w = new BrowserWindow({
+        show: false,
+        width: 400,
+        height: 400,
+        titleBarStyle: style,
+        webPreferences: {
+          nodeIntegration: true,
+          contextIsolation: false
+        },
+        titleBarOverlay: true
+      });
+      const overlayHTML = path.join(__dirname, 'fixtures', 'pages', 'overlay.html');
+      if (process.platform === 'darwin') {
+        await w.loadFile(overlayHTML);
+      } else {
+        const overlayReady = emittedOnce(ipcMain, 'geometrychange');
+        await w.loadFile(overlayHTML);
+        await overlayReady;
+      }
+      const overlayEnabled = await w.webContents.executeJavaScript('navigator.windowControlsOverlay.visible');
+      expect(overlayEnabled).to.be.true('overlayEnabled');
+      const overlayRect = await w.webContents.executeJavaScript('getJSOverlayProperties()');
+      expect(overlayRect.y).to.equal(0);
+      if (process.platform === 'darwin') {
+        expect(overlayRect.x).to.be.greaterThan(0);
+      } else {
+        expect(overlayRect.x).to.equal(0);
+      }
+      expect(overlayRect.width).to.be.greaterThan(0);
+      expect(overlayRect.height).to.be.greaterThan(0);
+      const cssOverlayRect = await w.webContents.executeJavaScript('getCssOverlayProperties();');
+      expect(cssOverlayRect).to.deep.equal(overlayRect);
+      const geometryChange = emittedOnce(ipcMain, 'geometrychange');
+      w.setBounds({ width: 800 });
+      const [, newOverlayRect] = await geometryChange;
+      expect(newOverlayRect.width).to.equal(overlayRect.width + 400);
+    };
     afterEach(closeAllWindows);
+    afterEach(() => { ipcMain.removeAllListeners('geometrychange'); });
     it('creates browser window with hidden title bar', () => {
       const w = new BrowserWindow({
         show: false,
@@ -1876,7 +1934,7 @@ describe('BrowserWindow module', () => {
       const contentSize = w.getContentSize();
       expect(contentSize).to.deep.equal([400, 400]);
     });
-    it('creates browser window with hidden inset title bar', () => {
+    ifit(process.platform === 'darwin')('creates browser window with hidden inset title bar', () => {
       const w = new BrowserWindow({
         show: false,
         width: 400,
@@ -1885,6 +1943,12 @@ describe('BrowserWindow module', () => {
       });
       const contentSize = w.getContentSize();
       expect(contentSize).to.deep.equal([400, 400]);
+    });
+    it('sets Window Control Overlay with hidden title bar', async () => {
+      await testWindowsOverlay('hidden');
+    });
+    ifit(process.platform === 'darwin')('sets Window Control Overlay with hidden inset title bar', async () => {
+      await testWindowsOverlay('hiddenInset');
     });
   });
 
@@ -3564,7 +3628,7 @@ describe('BrowserWindow module', () => {
         const w = new BrowserWindow({ show: false });
         const c = new BrowserWindow({ show: false, parent: w });
         expect(c.isVisible()).to.be.false('child is visible');
-        expect(c.getParentWindow().isVisible()).to.be.false('parent is visible');
+        expect(c.getParentWindow()!.isVisible()).to.be.false('parent is visible');
       });
     });
 

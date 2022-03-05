@@ -255,6 +255,9 @@ class NativeWindow : public base::SupportsUserData,
     return weak_factory_.GetWeakPtr();
   }
 
+  virtual gfx::Rect GetWindowControlsOverlayRect();
+  virtual void SetWindowControlsOverlayRect(const gfx::Rect& overlay_rect);
+
   // Methods called by the WebContents.
   virtual void HandleKeyboardEvent(
       content::WebContents*,
@@ -298,6 +301,7 @@ class NativeWindow : public base::SupportsUserData,
                                      const base::DictionaryValue& details);
   void NotifyNewWindowForTab();
   void NotifyWindowSystemContextMenu(int x, int y, bool* prevent_default);
+  void NotifyLayoutWindowControlsOverlay();
 
 #if defined(OS_WIN)
   void NotifyWindowMessage(UINT message, WPARAM w_param, LPARAM l_param);
@@ -310,6 +314,14 @@ class NativeWindow : public base::SupportsUserData,
 
   views::Widget* widget() const { return widget_.get(); }
   views::View* content_view() const { return content_view_; }
+
+  enum class TitleBarStyle {
+    kNormal,
+    kHidden,
+    kHiddenInset,
+    kCustomButtonsOnHover,
+  };
+  TitleBarStyle title_bar_style() const { return title_bar_style_; }
 
   bool has_frame() const { return has_frame_; }
   void set_has_frame(bool has_frame) { has_frame_ = has_frame; }
@@ -341,6 +353,12 @@ class NativeWindow : public base::SupportsUserData,
     browser_views_.remove_if(
         [&browser_view](NativeBrowserView* n) { return (n == browser_view); });
   }
+
+  // The boolean parsing of the "titleBarOverlay" option
+  bool titlebar_overlay_ = false;
+
+  // The "titleBarStyle" option.
+  TitleBarStyle title_bar_style_ = TitleBarStyle::kNormal;
 
  private:
   std::unique_ptr<views::Widget> widget_;
@@ -389,6 +407,8 @@ class NativeWindow : public base::SupportsUserData,
 
   // Accessible title.
   std::u16string accessible_title_;
+
+  gfx::Rect overlay_rect_;
 
   base::WeakPtrFactory<NativeWindow> weak_factory_{this};
 

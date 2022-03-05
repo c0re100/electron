@@ -74,6 +74,7 @@
 #include "mojo/public/cpp/system/platform_handle.h"
 #include "ppapi/buildflags/buildflags.h"
 #include "printing/buildflags/buildflags.h"
+#include "services/resource_coordinator/public/cpp/memory_instrumentation/memory_instrumentation.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "shell/browser/api/electron_api_browser_window.h"
 #include "shell/browser/api/electron_api_debugger.h"
@@ -101,6 +102,7 @@
 #include "shell/browser/web_view_guest_delegate.h"
 #include "shell/browser/web_view_manager.h"
 #include "shell/common/api/electron_api_native_image.h"
+#include "shell/common/api/electron_bindings.h"
 #include "shell/common/color_util.h"
 #include "shell/common/electron_constants.h"
 #include "shell/common/gin_converters/base_converter.h"
@@ -911,6 +913,12 @@ void WebContents::InitWithWebContents(content::WebContents* web_contents,
 }
 
 WebContents::~WebContents() {
+  // clear out objects that have been granted permissions so that when
+  // WebContents::RenderFrameDeleted is called as a result of WebContents
+  // destruction it doesn't try to clear out a granted_devices_
+  // on a destructed object.
+  granted_devices_.clear();
+
   MarkDestroyed();
   // The destroy() is called.
   if (inspectable_web_contents_) {
@@ -1415,6 +1423,12 @@ void WebContents::RenderFrameDeleted(
   // - Cross-origin navigation creates a new RFH in a separate process which
   //   is swapped by content::RenderFrameHostManager.
   //
+
+  // clear out objects that have been granted permissions
+  if (!granted_devices_.empty()) {
+    granted_devices_.erase(render_frame_host->GetFrameTreeNodeId());
+  }
+
   // WebFrameMain::FromRenderFrameHost(rfh) will use the RFH's FrameTreeNode ID
   // to find an existing instance of WebFrameMain. During a cross-origin
   // navigation, the deleted RFH will be the old host which was swapped out. In
@@ -1665,6 +1679,9 @@ void WebContents::MessageTo(bool internal,
     gin::Handle<WebFrameMain> web_frame_main =
         WebFrameMain::From(JavascriptEnvironment::GetIsolate(), frame);
 
+    if (!web_frame_main->CheckRenderFrame())
+      return;
+
     int32_t sender_id = ID();
     web_frame_main->GetRendererApi()->Message(internal, channel,
                                               std::move(arguments), sender_id);
@@ -1720,6 +1737,10 @@ void WebContents::ReadyToCommitNavigation(
 
 void WebContents::DidFinishNavigation(
     content::NavigationHandle* navigation_handle) {
+  if (owner_window_) {
+    owner_window_->NotifyLayoutWindowControlsOverlay();
+  }
+
   if (!navigation_handle->HasCommitted())
     return;
   bool is_main_frame = navigation_handle->IsInMainFrame();
@@ -3206,6 +3227,26 @@ void WebContents::NotifyUserActivation() {
         blink::mojom::UserActivationNotificationType::kInteraction);
 }
 
+v8::Local<v8::Promise> WebContents::GetProcessMemoryInfo(v8::Isolate* isolate) {
+  gin_helper::Promise<gin_helper::Dictionary> promise(isolate);
+  v8::Local<v8::Promise> handle = promise.GetHandle();
+
+  auto* frame_host = web_contents()->GetMainFrame();
+  if (!frame_host) {
+    promise.RejectWithErrorMessage("Failed to create memory dump");
+    return handle;
+  }
+
+  auto pid = frame_host->GetProcess()->GetProcess().Pid();
+  v8::Global<v8::Context> context(isolate, isolate->GetCurrentContext());
+  memory_instrumentation::MemoryInstrumentation::GetInstance()
+      ->RequestGlobalDumpForPid(
+          pid, std::vector<std::string>(),
+          base::BindOnce(&ElectronBindings::DidReceiveMemoryDump,
+                         std::move(context), std::move(promise), pid));
+  return handle;
+}
+
 v8::Local<v8::Promise> WebContents::TakeHeapSnapshot(
     v8::Isolate* isolate,
     const base::FilePath& file_path) {
@@ -3252,6 +3293,42 @@ v8::Local<v8::Promise> WebContents::TakeHeapSnapshot(
           },
           base::Owned(std::move(electron_renderer)), std::move(promise)));
   return handle;
+}
+
+void WebContents::GrantDevicePermission(
+    const url::Origin& origin,
+    const base::Value* device,
+    content::PermissionType permissionType,
+    content::RenderFrameHost* render_frame_host) {
+  granted_devices_[render_frame_host->GetFrameTreeNodeId()][permissionType]
+                  [origin]
+                      .push_back(
+                          std::make_unique<base::Value>(device->Clone()));
+}
+
+std::vector<base::Value> WebContents::GetGrantedDevices(
+    const url::Origin& origin,
+    content::PermissionType permissionType,
+    content::RenderFrameHost* render_frame_host) {
+  const auto& devices_for_frame_host_it =
+      granted_devices_.find(render_frame_host->GetFrameTreeNodeId());
+  if (devices_for_frame_host_it == granted_devices_.end())
+    return {};
+
+  const auto& current_devices_it =
+      devices_for_frame_host_it->second.find(permissionType);
+  if (current_devices_it == devices_for_frame_host_it->second.end())
+    return {};
+
+  const auto& origin_devices_it = current_devices_it->second.find(origin);
+  if (origin_devices_it == current_devices_it->second.end())
+    return {};
+
+  std::vector<base::Value> results;
+  for (const auto& object : origin_devices_it->second)
+    results.push_back(object->Clone());
+
+  return results;
 }
 
 void WebContents::UpdatePreferredSize(content::WebContents* web_contents,
@@ -3812,6 +3889,7 @@ v8::Local<v8::ObjectTemplate> WebContents::FillObjectTemplate(
                  &WebContents::GetWebRTCIPHandlingPolicy)
       .SetMethod("_grantOriginAccess", &WebContents::GrantOriginAccess)
       .SetMethod("takeHeapSnapshot", &WebContents::TakeHeapSnapshot)
+      .SetMethod("_getProcessMemoryInfo", &WebContents::GetProcessMemoryInfo)
       .SetProperty("id", &WebContents::ID)
       .SetProperty("session", &WebContents::Session)
       .SetProperty("hostWebContents", &WebContents::HostWebContents)

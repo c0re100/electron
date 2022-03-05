@@ -71,12 +71,14 @@
 
 #elif defined(OS_WIN)
 #include "base/win/win_util.h"
+#include "extensions/common/image_util.h"
 #include "shell/browser/ui/views/win_frame_view.h"
 #include "shell/browser/ui/win/electron_desktop_native_widget_aura.h"
 #include "skia/ext/skia_utils_win.h"
 #include "ui/base/win/shell.h"
 #include "ui/display/screen.h"
 #include "ui/display/win/screen_win.h"
+#include "ui/gfx/color_utils.h"
 #include "ui/views/widget/desktop_aura/desktop_native_widget_aura.h"
 #endif
 
@@ -110,6 +112,11 @@ void FlipWindowStyle(HWND handle, bool on, DWORD flag) {
   else
     style &= ~flag;
   ::SetWindowLong(handle, GWL_STYLE, style);
+  // Window's frame styles are cached so we need to call SetWindowPos
+  // with the SWP_FRAMECHANGED flag to update cache properly.
+  ::SetWindowPos(handle, 0, 0, 0, 0, 0,  // ignored
+                 SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
+                     SWP_NOACTIVATE | SWP_NOOWNERZORDER);
 }
 
 gfx::Rect DIPToScreenRect(HWND hwnd, const gfx::Rect& pixel_bounds) {
@@ -165,6 +172,37 @@ NativeWindowViews::NativeWindowViews(const gin_helper::Dictionary& options,
   options.Get("thickFrame", &thick_frame_);
   if (transparent())
     thick_frame_ = false;
+
+  overlay_button_color_ = color_utils::GetSysSkColor(COLOR_BTNFACE);
+  overlay_symbol_color_ = color_utils::GetSysSkColor(COLOR_BTNTEXT);
+
+  v8::Local<v8::Value> titlebar_overlay;
+  if (options.Get(options::ktitleBarOverlay, &titlebar_overlay) &&
+      titlebar_overlay->IsObject()) {
+    v8::Isolate* isolate = JavascriptEnvironment::GetIsolate();
+    gin_helper::Dictionary titlebar_overlay_obj =
+        gin::Dictionary::CreateEmpty(isolate);
+    options.Get(options::ktitleBarOverlay, &titlebar_overlay_obj);
+
+    std::string overlay_color_string;
+    if (titlebar_overlay_obj.Get(options::kOverlayButtonColor,
+                                 &overlay_color_string)) {
+      bool success = extensions::image_util::ParseCssColorString(
+          overlay_color_string, &overlay_button_color_);
+      DCHECK(success);
+    }
+
+    std::string overlay_symbol_color_string;
+    if (titlebar_overlay_obj.Get(options::kOverlaySymbolColor,
+                                 &overlay_symbol_color_string)) {
+      bool success = extensions::image_util::ParseCssColorString(
+          overlay_symbol_color_string, &overlay_symbol_color_);
+      DCHECK(success);
+    }
+  }
+
+  if (title_bar_style_ != TitleBarStyle::kNormal)
+    set_has_frame(false);
 #endif
 
   if (enable_larger_than_screen())
@@ -1070,8 +1108,17 @@ void NativeWindowViews::SetIgnoreMouseEvents(bool ignore, bool forward) {
 
 void NativeWindowViews::SetContentProtection(bool enable) {
 #if defined(OS_WIN)
+  HWND hwnd = GetAcceleratedWidget();
   DWORD affinity = enable ? WDA_EXCLUDEFROMCAPTURE : WDA_NONE;
-  ::SetWindowDisplayAffinity(GetAcceleratedWidget(), affinity);
+  ::SetWindowDisplayAffinity(hwnd, affinity);
+  if (!layered_) {
+    // Workaround to prevent black window on screen capture after hiding and
+    // showing the BrowserWindow.
+    LONG ex_style = ::GetWindowLong(hwnd, GWL_EXSTYLE);
+    ex_style |= WS_EX_LAYERED;
+    ::SetWindowLong(hwnd, GWL_EXSTYLE, ex_style);
+    layered_ = true;
+  }
 #endif
 }
 

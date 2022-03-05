@@ -20,6 +20,7 @@
 #include "content/common/frame.mojom.h"
 #include "content/public/browser/devtools_agent_host.h"
 #include "content/public/browser/keyboard_event_processing_result.h"
+#include "content/public/browser/permission_type.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
@@ -89,6 +90,11 @@ class OffScreenWebContentsView;
 #endif
 
 namespace api {
+
+using DevicePermissionMap = std::map<
+    int,
+    std::map<content::PermissionType,
+             std::map<url::Origin, std::vector<std::unique_ptr<base::Value>>>>>;
 
 // Wrapper around the content::WebContents.
 class WebContents : public gin::Wrappable<WebContents>,
@@ -323,6 +329,7 @@ class WebContents : public gin::Wrappable<WebContents>,
 
   v8::Local<v8::Promise> TakeHeapSnapshot(v8::Isolate* isolate,
                                           const base::FilePath& file_path);
+  v8::Local<v8::Promise> GetProcessMemoryInfo(v8::Isolate* isolate);
 
   // Properties.
   int32_t ID() const { return id_; }
@@ -427,6 +434,21 @@ class WebContents : public gin::Wrappable<WebContents>,
   void SetTemporaryZoomLevel(double level);
   void DoGetZoomLevel(
       electron::mojom::ElectronBrowser::DoGetZoomLevelCallback callback);
+
+  // Grants |origin| access to |device|.
+  // To be used in place of ObjectPermissionContextBase::GrantObjectPermission.
+  void GrantDevicePermission(const url::Origin& origin,
+                             const base::Value* device,
+                             content::PermissionType permissionType,
+                             content::RenderFrameHost* render_frame_host);
+
+  // Returns the list of devices that |origin| has been granted permission to
+  // access. To be used in place of
+  // ObjectPermissionContextBase::GetGrantedObjects.
+  std::vector<base::Value> GetGrantedDevices(
+      const url::Origin& origin,
+      content::PermissionType permissionType,
+      content::RenderFrameHost* render_frame_host);
 
  private:
   // Does not manage lifetime of |web_contents|.
@@ -785,6 +807,9 @@ class WebContents : public gin::Wrappable<WebContents>,
   content::RenderFrameHost* fullscreen_frame_ = nullptr;
 
   service_manager::BinderRegistryWithArgs<content::RenderFrameHost*> registry_;
+
+  // In-memory cache that holds objects that have been granted permissions.
+  DevicePermissionMap granted_devices_;
 
   base::WeakPtrFactory<WebContents> weak_factory_{this};
 

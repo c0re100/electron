@@ -541,6 +541,9 @@ WebContents.prototype._init = function () {
       ipcMainInternal.emit(channel, event, ...args);
     } else {
       addReplyToEvent(event);
+      if (this.listenerCount('ipc-message-sync') === 0 && ipcMain.listenerCount(channel) === 0) {
+        console.warn(`WebContents #${this.id} called ipcRenderer.sendSync() with '${channel}' channel without listeners.`);
+      }
       this.emit('ipc-message-sync', event, channel, ...args);
       ipcMain.emit(channel, event, ...args);
     }
@@ -675,6 +678,14 @@ WebContents.prototype._init = function () {
       process.nextTick(() => {
         owner.emit('ready-to-show');
       });
+    }
+  });
+
+  this.on('select-bluetooth-device', (event, devices, callback) => {
+    if (this.listenerCount('select-bluetooth-device') === 1) {
+      // Cancel it if there are no handlers
+      event.preventDefault();
+      callback('');
     }
   });
 
