@@ -23,5 +23,7 @@
 
   "src/electron/patches/webrtc": "src/third_party/webrtc",
 
-  "src/electron/patches/pdfium": "src/third_party/pdfium"
+  "src/electron/patches/pdfium": "src/third_party/pdfium",
+
+  "src/electron/patches/frontend": "src/third_party/devtools-frontend/src"
 }

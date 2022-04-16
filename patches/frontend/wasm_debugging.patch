@@ -1,0 +1,23 @@
+From 2efdb7a2501e833c48cc70d186832cca2b1282be Mon Sep 17 00:00:00 2001
+From: c0re100 <corehusky@gmail.com>
+Date: Sun, 17 Apr 2022 02:30:16 +0800
+Subject: [PATCH] Patch for wasm debugging
+
+diff --git a/front_end/wasmparser_worker/WasmParserWorker.ts b/front_end/wasmparser_worker/WasmParserWorker.ts
+index acf15845a..894605d4c 100644
+--- a/front_end/wasmparser_worker/WasmParserWorker.ts
++++ b/front_end/wasmparser_worker/WasmParserWorker.ts
+@@ -58,8 +58,8 @@ export function dissambleWASM(
+     const lines = [];
+     const offsets = [];
+     const functionBodyOffsets = [];
+-    const MAX_LINES = 1000 * 1000;
+-    let chunkSize: number = 128 * 1024;
++    const MAX_LINES = 10000 * 1000;
++    let chunkSize: number = 256 * 1024;
+     let buffer: Uint8Array = new Uint8Array(chunkSize);
+     let pendingSize = 0;
+     let offsetInModule = 0;
+-- 
+2.33.0.windows.1
+
