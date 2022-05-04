@@ -1,0 +1,60 @@
+From c94ce7a535af8c8907860e8349a4ae59341eae25 Mon Sep 17 00:00:00 2001
+From: c0re100 <corehusky@gmail.com>
+Date: Tue, 5 Oct 2021 22:03:15 +0800
+Subject: [PATCH] Make mouse events propagate to iframes/webviews
+
+---
+ content/browser/renderer_host/render_widget_host_impl.cc | 8 ++++++--
+ content/browser/renderer_host/render_widget_targeter.cc  | 4 ++++
+ 2 files changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/content/browser/renderer_host/render_widget_host_impl.cc b/content/browser/renderer_host/render_widget_host_impl.cc
+index 41da13af8e1b5..fdfbc2ab86ecb 100644
+--- a/content/browser/renderer_host/render_widget_host_impl.cc
++++ b/content/browser/renderer_host/render_widget_host_impl.cc
+@@ -1346,8 +1346,12 @@ void RenderWidgetHostImpl::ForwardMouseEvent(const WebMouseEvent& mouse_event) {
+     return;
+   }
+ 
+-  ForwardMouseEventWithLatencyInfo(mouse_event,
+-                                   ui::LatencyInfo(ui::SourceEventType::MOUSE));
++  // NOTE: (Modified) Route mouse event just like in RenderWidgetHostViewEventHandler::OnMouseEvent
++  MouseEventWithLatencyInfo mouse_with_latency(mouse_event, ui::LatencyInfo(ui::SourceEventType::MOUSE));
++  delegate_->GetInputEventRouter()->RouteMouseEvent(
++                 GetView(), &mouse_with_latency.event, mouse_with_latency.latency);
++/*   ForwardMouseEventWithLatencyInfo(mouse_event,
++                                   ui::LatencyInfo(ui::SourceEventType::MOUSE)); */
+   if (owner_delegate_)
+     owner_delegate_->RenderWidgetDidForwardMouseEvent(mouse_event);
+ }
+diff --git a/content/browser/renderer_host/render_widget_targeter.cc b/content/browser/renderer_host/render_widget_targeter.cc
+index 6dd45c4327367..6196794c15f5a 100644
+--- a/content/browser/renderer_host/render_widget_targeter.cc
++++ b/content/browser/renderer_host/render_widget_targeter.cc
+@@ -248,6 +248,7 @@ void RenderWidgetTargeter::ResolveTargetingRequest(TargetingRequest request) {
+     result = delegate_->FindTargetSynchronouslyAtPoint(request_target,
+                                                        request_target_location);
+   }
++  /*
+   RenderWidgetHostViewBase* target = result.view;
+   async_depth_ = 0;
+   if (!is_autoscroll_in_progress_ && result.should_query_view) {
+@@ -264,12 +265,15 @@ void RenderWidgetTargeter::ResolveTargetingRequest(TargetingRequest request) {
+     // root_view and the original event location for the initial query.
+     // Do not compare hit test results if we are forced to do async hit testing
+     // by HitTestQuery.
++  */
+     QueryClient(request_target, request_target_location, nullptr, gfx::PointF(),
+                 std::move(request));
++  /*
+   } else {
+     FoundTarget(target, result.target_location, result.latched_target,
+                 &request);
+   }
++  */
+ }
+ 
+ void RenderWidgetTargeter::ViewWillBeDestroyed(RenderWidgetHostViewBase* view) {
+-- 
+2.33.0.windows.1
+
