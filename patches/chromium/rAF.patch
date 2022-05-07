@@ -1,0 +1,25 @@
+From c5e88b05e482a7c35f438df373b2b61a5db577b7 Mon Sep 17 00:00:00 2001
+From: c0re100 <corehusky@gmail.com>
+Date: Sat, 7 May 2022 09:18:02 +0800
+Subject: [PATCH] Disable hidden
+
+---
+ .../renderer_host/render_widget_host_view_child_frame.cc        | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/content/browser/renderer_host/render_widget_host_view_child_frame.cc b/content/browser/renderer_host/render_widget_host_view_child_frame.cc
+index 185bbdc16bb2a..00f2a06029229 100644
+--- a/content/browser/renderer_host/render_widget_host_view_child_frame.cc
++++ b/content/browser/renderer_host/render_widget_host_view_child_frame.cc
+@@ -229,7 +229,7 @@ void RenderWidgetHostViewChildFrame::ShowWithVisibility(
+ void RenderWidgetHostViewChildFrame::Hide() {
+   if (host()->is_hidden())
+     return;
+-  host()->WasHidden();
++  //host()->WasHidden();
+ 
+   if (frame_connector_)
+     frame_connector_->SetVisibilityForChildViews(false);
+-- 
+2.33.0.windows.1
+

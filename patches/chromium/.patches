@@ -117,3 +117,4 @@ introduce_ozoneplatform_electron_can_call_x11_property.patch
 make_gtk_getlibgtk_public.patch
 cherry-pick-e2b8856012e0.patch
 make_mouse_events_propagate_to_iframes_webviews.patch
+rAF.patch
