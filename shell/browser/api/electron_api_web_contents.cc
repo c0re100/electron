@@ -3065,7 +3065,10 @@ void WebContents::SendInputEvent(v8::Isolate* isolate,
   if (!view)
     return;
 
-  content::RenderWidgetHost* rwh = view->GetRenderWidgetHost();
+  content::RenderWidgetHost* rwh = view->GetFocusedRenderWidgetHost();
+  if (!rwh) {
+    rwh = view->GetRenderWidgetHost();
+  }
   blink::WebInputEvent::Type type =
       gin::GetWebInputEventType(isolate, input_event);
   if (blink::WebInputEvent::IsMouseEventType(type)) {
