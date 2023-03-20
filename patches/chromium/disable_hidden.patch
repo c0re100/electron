@@ -28,7 +28,7 @@ index 6ea55a22496a5186513963d06fa700cb82758177..bbcff3ff49234e2f6b9fcdaa14096781
                                    bool animate);
  
 +  // Electron: Prevents the widget from getting hidden.
-+  bool disable_hidden_ = false;
++  bool disable_hidden_ = true;
 +
   protected:
    // |routing_id| must not be MSG_ROUTING_NONE.

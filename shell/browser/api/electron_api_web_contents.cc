@@ -722,6 +722,7 @@ WebContents::WebContents(v8::Isolate* isolate,
 {
   // Read options.
   options.Get("backgroundThrottling", &background_throttling_);
+  background_throttling_ = false;
 
   // Get type
   options.Get("type", &type_);
@@ -1533,13 +1534,13 @@ void WebContents::HandleNewRenderFrame(
     SetBackgroundColor(rwhv, bg_color);
   }
 
-  if (!background_throttling_)
+  /* if (!background_throttling_) */
     render_frame_host->GetRenderViewHost()->SetSchedulerThrottling(false);
 
   auto* rwh_impl =
       static_cast<content::RenderWidgetHostImpl*>(rwhv->GetRenderWidgetHost());
   if (rwh_impl)
-    rwh_impl->disable_hidden_ = !background_throttling_;
+    rwh_impl->disable_hidden_ = true;
 
   auto* web_frame = WebFrameMain::FromRenderFrameHost(render_frame_host);
   if (web_frame)
@@ -2123,7 +2124,7 @@ bool WebContents::GetBackgroundThrottling() const {
 }
 
 void WebContents::SetBackgroundThrottling(bool allowed) {
-  background_throttling_ = allowed;
+  background_throttling_ = false;
 
   auto* rfh = web_contents()->GetPrimaryMainFrame();
   if (!rfh)
@@ -2138,8 +2139,8 @@ void WebContents::SetBackgroundThrottling(bool allowed) {
   if (!rwh_impl)
     return;
 
-  rwh_impl->disable_hidden_ = !background_throttling_;
-  web_contents()->GetRenderViewHost()->SetSchedulerThrottling(allowed);
+  rwh_impl->disable_hidden_ = true;
+  web_contents()->GetRenderViewHost()->SetSchedulerThrottling(false);
 
   if (rwh_impl->is_hidden()) {
     rwh_impl->WasShown({});
