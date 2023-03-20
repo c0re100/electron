@@ -1,18 +1,19 @@
-From c94ce7a535af8c8907860e8349a4ae59341eae25 Mon Sep 17 00:00:00 2001
+From e8ae02cfa6c67cf5c987db07e17fbf63edc80e64 Mon Sep 17 00:00:00 2001
 From: c0re100 <corehusky@gmail.com>
-Date: Tue, 5 Oct 2021 22:03:15 +0800
+Date: Tue, 21 Mar 2023 07:14:29 +0800
 Subject: [PATCH] Make mouse events propagate to iframes/webviews
 
+ref: https://github.com/electron/electron/issues/20333#issuecomment-723056236
 ---
  content/browser/renderer_host/render_widget_host_impl.cc | 8 ++++++--
  content/browser/renderer_host/render_widget_targeter.cc  | 4 ++++
  2 files changed, 10 insertions(+), 2 deletions(-)
 
 diff --git a/content/browser/renderer_host/render_widget_host_impl.cc b/content/browser/renderer_host/render_widget_host_impl.cc
-index 41da13af8e1b5..fdfbc2ab86ecb 100644
+index 6ed422b4bfc50..aa3087f165746 100644
 --- a/content/browser/renderer_host/render_widget_host_impl.cc
 +++ b/content/browser/renderer_host/render_widget_host_impl.cc
-@@ -1346,8 +1346,12 @@ void RenderWidgetHostImpl::ForwardMouseEvent(const WebMouseEvent& mouse_event) {
+@@ -1494,8 +1494,12 @@ void RenderWidgetHostImpl::ForwardMouseEvent(const WebMouseEvent& mouse_event) {
      return;
    }
  
@@ -28,28 +29,27 @@ index 41da13af8e1b5..fdfbc2ab86ecb 100644
      owner_delegate_->RenderWidgetDidForwardMouseEvent(mouse_event);
  }
 diff --git a/content/browser/renderer_host/render_widget_targeter.cc b/content/browser/renderer_host/render_widget_targeter.cc
-index 6dd45c4327367..6196794c15f5a 100644
+index a6c879e937ce7..4a711e7e86819 100644
 --- a/content/browser/renderer_host/render_widget_targeter.cc
 +++ b/content/browser/renderer_host/render_widget_targeter.cc
-@@ -248,6 +248,7 @@ void RenderWidgetTargeter::ResolveTargetingRequest(TargetingRequest request) {
+@@ -243,6 +243,7 @@ void RenderWidgetTargeter::ResolveTargetingRequest(TargetingRequest request) {
      result = delegate_->FindTargetSynchronouslyAtPoint(request_target,
                                                         request_target_location);
    }
 +  /*
    RenderWidgetHostViewBase* target = result.view;
-   async_depth_ = 0;
    if (!is_autoscroll_in_progress_ && result.should_query_view) {
-@@ -264,12 +265,15 @@ void RenderWidgetTargeter::ResolveTargetingRequest(TargetingRequest request) {
+     TRACE_EVENT_WITH_FLOW2(
+@@ -258,11 +259,14 @@ void RenderWidgetTargeter::ResolveTargetingRequest(TargetingRequest request) {
      // root_view and the original event location for the initial query.
      // Do not compare hit test results if we are forced to do async hit testing
      // by HitTestQuery.
-+  */
++    */
      QueryClient(request_target, request_target_location, nullptr, gfx::PointF(),
                  std::move(request));
 +  /*
    } else {
-     FoundTarget(target, result.target_location, result.latched_target,
-                 &request);
+     FoundTarget(target, result.target_location, &request);
    }
 +  */
  }
